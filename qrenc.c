@@ -463,6 +463,26 @@ static int writeSVG( QRcode *qrcode, const char *outfile, const unsigned char *i
 			symwidth, symwidth);
 	}
 
+	/* Embed original text as title */
+	if (embed) {
+		/* The text is included as CDATA, so we have to escape around any
+		 * occurrences of ]]>, which we do by splitting the ] in one CDATA
+		 * section and the ]> in the next one.
+		 * TODO FIXME this assumes that the intext is UTF-8-encoded. If we plan
+		 * on supporting a wider variety of encodings, the encoding information
+		 * should be passed to the writer and set as the XML encoding of the SVG.
+		 */
+		const char *prev = (const char *)intext;
+		const char *next = strstr(prev, "]]>");
+		fprintf( fp, "\t<title><![CDATA[");
+		while (next != NULL) {
+			fprintf( fp, "%.*s]]><![CDATA[", (int)(next - prev + 1), prev);
+			prev = next + 1;
+			next = strstr(prev, "]]>");
+		}
+		fprintf( fp, "%s]]></title>\n", prev);
+	}
+
 	/* SVG CSS for styling */
 	fputs( "\t<style>", fp );
 
