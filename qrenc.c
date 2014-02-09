@@ -40,6 +40,7 @@ static int margin = -1;
 static int dpi = 72;
 static int structured = 0;
 static int rle = 0;
+static int embed = 0;
 static int micro = 0;
 static QRecLevel level = QR_ECLEVEL_L;
 static QRencodeMode hint = QR_MODE_8;
@@ -75,6 +76,7 @@ static const struct option options[] = {
 	{"ignorecase"   , no_argument      , NULL, 'i'},
 	{"8bit"         , no_argument      , NULL, '8'},
 	{"rle"          , no_argument      , &rle,   1},
+	{"embed"        , no_argument      , &embed, 1},
 	{"micro"        , no_argument      , NULL, 'M'},
 	{"foreground"	, required_argument, NULL, 'f'},
 	{"background"	, required_argument, NULL, 'b'},
@@ -124,6 +126,7 @@ static void usage(int help, int longopt, int status)
 "               ignore case distinctions and use only upper-case characters.\n\n"
 "  -8, --8bit   encode entire data in 8-bit mode. -k, -c and -i will be ignored.\n\n"
 "      --rle    enable run-length encoding for SVG.\n\n"
+"      --embed  embed the original text in the output (SVG, EPS, PNG only).\n\n"
 "  -M, --micro  encode in a Micro QR Code. (experimental)\n\n"
 "      --foreground=RRGGBB[AA]\n"
 "      --background=RRGGBB[AA]\n"
@@ -234,7 +237,7 @@ static FILE *openFile(const char *outfile)
 	return fp;
 }
 
-static int writePNG(QRcode *qrcode, const char *outfile)
+static int writePNG(QRcode *qrcode, const char *outfile, const unsigned char *intext)
 {
 	static FILE *fp; // avoid clobbering by setjmp.
 	png_structp png_ptr;
@@ -356,7 +359,7 @@ static int writePNG(QRcode *qrcode, const char *outfile)
 	return 0;
 }
 
-static int writeEPS(QRcode *qrcode, const char *outfile)
+static int writeEPS(QRcode *qrcode, const char *outfile, const unsigned char *intext)
 {
 	FILE *fp;
 	unsigned char *row, *p;
@@ -406,7 +409,7 @@ static void writeSVG_writeRect(FILE *fp, int x, int y, int width)
 		x, y, width);
 }
 
-static int writeSVG( QRcode *qrcode, const char *outfile )
+static int writeSVG( QRcode *qrcode, const char *outfile, const unsigned char *intext )
 {
 	FILE *fp;
 	unsigned char *row, *p;
@@ -851,13 +854,13 @@ static void qrencode(const unsigned char *intext, int length, const char *outfil
 	}
 	switch(image_type) {
 		case PNG_TYPE:
-			writePNG(qrcode, outfile);
+			writePNG(qrcode, outfile, intext);
 			break;
 		case EPS_TYPE:
-			writeEPS(qrcode, outfile);
+			writeEPS(qrcode, outfile, intext);
 			break;
 		case SVG_TYPE:
-			writeSVG(qrcode, outfile);
+			writeSVG(qrcode, outfile, intext);
 			break;
 		case ANSI_TYPE:
 		case ANSI256_TYPE:
@@ -960,15 +963,18 @@ static void qrencodeStructured(const unsigned char *intext, int length, const ch
 		} else {
 			snprintf(filename, FILENAME_MAX, "%s-%02d", base, i);
 		}
+		/* TODO the text passed should only be the one for the specific
+		 * symbol, not the whole text
+		 */
 		switch(image_type) {
 			case PNG_TYPE: 
-				writePNG(p->code, filename);
+				writePNG(p->code, filename, intext);
 				break;
 			case EPS_TYPE: 
-				writeEPS(p->code, filename);
+				writeEPS(p->code, filename, intext);
 				break;
 			case SVG_TYPE: 
-				writeSVG(p->code, filename);
+				writeSVG(p->code, filename, intext);
 				break;
 			case ANSI_TYPE:
 			case ANSI256_TYPE:
